@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -9,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 )
 
@@ -24,7 +26,7 @@ type StravaToken struct {
 }
 
 const (
-	fiftyWeeks = time.Hour * 24 * 7 * 50
+	fiftyOneWeeks = time.Hour * 24 * 7 * 51
 )
 
 var (
@@ -165,6 +167,35 @@ func accessToken(tokens *StravaToken) {
 
 }
 
+func fiftyOneWeeksBeforeMondayThisWeek(t time.Time) time.Time {
+	if t.Weekday() == time.Sunday {
+		t = t.AddDate(0, 0, -6)
+	} else {
+		t = t.AddDate(0, 0, -int(t.Weekday())+1)
+	}
+	year, month, day := t.Date()
+	return time.Date(year, month, day, 0, 0, 0, 0, time.UTC).Add(-fiftyOneWeeks)
+}
+func activities(tokens *StravaToken) string {
+	after := fiftyOneWeeksBeforeMondayThisWeek(time.Now().UTC()).Unix()
+	c := http.Client{Timeout: time.Duration(60) * time.Second}
+	activitiesUrl := "https://www.strava.com/api/v3/athlete/activities?after=" + strconv.FormatInt(after, 10) + "&per_page=200"
+	req, err := http.NewRequest("GET", activitiesUrl, nil)
+	if err != nil {
+		log.Fatal("Failed to create NewRequest", activitiesUrl)
+		panic(err)
+	}
+	req.Header.Add("Authorization", "Bearer "+tokens.AccessToken)
+	resp, err := c.Do(req)
+	if err != nil {
+		log.Fatal("Failed to perform the activities request")
+		panic(err)
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	return string(body)
+}
+
 func main() {
 	clientId := os.Getenv("SL_CLIENT_ID")
 	clientSecret := os.Getenv("SL_CLIENT_SECRET")
@@ -179,6 +210,5 @@ func main() {
 	readState(&tokens)
 	accessToken(&tokens)
 	writeState(&tokens)
-
-	// outputs the activities over the past year
+	fmt.Print(activities(&tokens))
 }
