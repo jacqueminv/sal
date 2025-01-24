@@ -72,6 +72,19 @@ func readState(tokens *StravaToken) {
 		panic(err)
 	}
 }
+func writeState(tokens *StravaToken) {
+	var configPath string = configPath()
+
+	content, err := json.Marshal(tokens)
+	if err != nil {
+		panic(err)
+	}
+	err = os.WriteFile(configPath, content, 0600)
+	if err != nil {
+		log.Printf("error saving config changes: %v", err)
+		panic(err)
+	}
+}
 
 func main() {
 	clientId := os.Getenv("SL_CLIENT_ID")
@@ -88,7 +101,7 @@ func main() {
 
 	// fetch an access token (if necessary)
 
-	// write locally the updated Strava Tokens
+	writeState(&tokens)
 
 	// outputs the activities over the past year
 }
